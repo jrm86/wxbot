@@ -1,0 +1,12 @@
+[Unit]
+Description=WXBOT - Check the weather from Discord!
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+ExecStart=node /home/pi/Dev/wxbot/index.js
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
