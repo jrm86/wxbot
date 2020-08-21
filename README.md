@@ -1,0 +1,2 @@
+# WXBOT Weather Discord Bot
+
