@@ -76,7 +76,7 @@ client.on("message", async (msg) => {
         "I had a problem looking up " +
         zipcode +
         ", but I've logged this query for review. For now, please try a different zip code.";
-      logger.error("Could not look up" + zipcode);
+      logger.error("Could not look up " + zipcode);
       msg.reply(err);
     }
   }
