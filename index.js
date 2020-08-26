@@ -4,6 +4,7 @@ const client = new Discord.Client();
 
 const { logger } = require("./modules/logger");
 const { buildReport } = require("./modules/report");
+const { getLocation } = require("./modules/postgres");
 
 const request = require("request");
 
@@ -23,7 +24,7 @@ client.on("error", (error) => {
 });
 
 // Message handler
-client.on("message", (msg) => {
+client.on("message", async (msg) => {
   // Look for wx#####
   let wxInvoke = msg.content.match(/wx[\d]{5}/g);
 
@@ -35,60 +36,49 @@ client.on("message", (msg) => {
       "Looking up zip code " + zipcode + " for " + msg.member.user.tag
     );
 
-    var options = {
-      method: "GET",
-      url: "http://api.openweathermap.org/data/2.5/weather",
-      qs: { appid: process.env.WXAPIKEY, zip: zipcode },
-    };
+    // get city, state, lat, long
+    const location = await getLocation(zipcode);
 
-    // Request to get city name, lat and long
-    request(options, function (error, response, body) {
-      if (error) {
-        logger.error(error.stack);
-      }
-      // body returns as string; parse to read
-      body = JSON.parse(body);
+    // If NOT 'location', then it's an invalid zip
+    if (location) {
+      let city = location.city;
+      let lat = location.lat;
+      let long = location.long;
 
-      // If NOT body.weather, then it's an invalid zip
-      if (body.weather) {
-        let city = body.name;
-        let lat = body.coord.lat;
-        let lon = body.coord.lon;
+      var forecastOpts = {
+        method: "GET",
+        url: "http://api.openweathermap.org/data/2.5/onecall",
+        qs: {
+          appid: process.env.WXAPIKEY,
+          lat: lat,
+          lon: long,
+          exclude: "minutely,hourly",
+        },
+      };
 
-        var forecastOpts = {
-          method: "GET",
-          url: "http://api.openweathermap.org/data/2.5/onecall",
-          qs: {
-            appid: process.env.WXAPIKEY,
-            lat: lat,
-            lon: lon,
-            exclude: "minutely,hourly",
-          },
-        };
+      // Request to get multi-day forecast
+      request(forecastOpts, async function (err, res, body) {
+        if (err) {
+          logger.error(error.stack);
+        }
+        logger.info("OpenWeather API call successful");
+        body = JSON.parse(body);
 
-        // Request to get multi-day forecast
-        request(forecastOpts, async function (err, res, body) {
-          if (err) {
-            logger.error(error.stack);
-          }
-          body = JSON.parse(body);
+        // build the message
+        let message = "Weather report for " + city + "\n\n";
+        message += await buildReport(body);
 
-          // build the message
-          let message = "Weather report for " + city + "\n\n";
-          message += await buildReport(body);
-
-          // Send the reply
-          msg.reply(message);
-        });
-      } else {
-        let err =
-          "I had a problem looking up " +
-          zipcode +
-          ", but I've logged this query for review. For now, please try a different zip code.";
-        logger.error("Could not look up" + zipcode);
-        msg.reply(err);
-      }
-    });
+        // Send the reply
+        msg.reply(message);
+      });
+    } else {
+      let err =
+        "I had a problem looking up " +
+        zipcode +
+        ", but I've logged this query for review. For now, please try a different zip code.";
+      logger.error("Could not look up" + zipcode);
+      msg.reply(err);
+    }
   }
 });
 
