@@ -3,8 +3,8 @@ const Discord = require("discord.js");
 const client = new Discord.Client();
 
 const { logger } = require("./modules/logger");
-const { buildReport } = require("./modules/report");
 const { getLocation } = require("./modules/postgres");
+const { buildBanner } = require("./modules/banner");
 
 const request = require("request");
 
@@ -41,7 +41,7 @@ client.on("message", async (msg) => {
 
     // If NOT 'location', then it's an invalid zip
     if (location) {
-      let city = location.city;
+      // let city = location.city;
       let lat = location.lat;
       let long = location.long;
 
@@ -64,12 +64,14 @@ client.on("message", async (msg) => {
         logger.info("OpenWeather API call successful");
         body = JSON.parse(body);
 
-        // build the message
-        let message = "Weather report for " + city + "\n\n";
-        message += await buildReport(body);
+        let message = "Here is your weather report!";
+
+        let bannerBuffer = await buildBanner(body,location);
+
+        const attachment = new Discord.MessageAttachment(bannerBuffer, "weather_report.png");
 
         // Send the reply
-        msg.reply(message);
+        msg.reply(message, attachment);
       });
     } else {
       let err =
